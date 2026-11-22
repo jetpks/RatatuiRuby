@@ -12,6 +12,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **The fd-based event seam** (`RatatuiRuby.input_wait_fds` / `RatatuiRuby::Seam`): the input-wait fds as selector-awaitable Integers — the tty fd (an fd on the SAME tty device crossterm's event source reads; never read by the gem or the host, present only when a real tty exists) and the wake fd (the read end of a fork-owned pipe, present at every seat). The wake pipe is written by every `SyntheticEvents.push` (the synthetic rail is self-waking) and by a fork-side SIGWINCH watcher (one byte per delivered SIGWINCH, via an independent signal-hook self-pipe registration — crossterm's internal Signals set is untouched). The first exposure eagerly warms crossterm's global event source (a warm-up `poll_event(timeout: 0.0)`), so a SIGWINCH delivered before the source's lazy first poll is never lost. `poll_event`'s public timeout semantics are unchanged: the host awaits readiness on the fds, then runs the non-blocking ready-read (`poll_event(timeout: 0.0)`). `Seam.drain_input_wake` re-arms the pipe, never blocking. No GVL-held blocking wait is added anywhere on the input path.
+
 ### Changed
 
 ### Fixed

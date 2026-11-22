@@ -13,6 +13,12 @@ crate-type = ["cdylib", "staticlib"]
 magnus = "0.8.2"
 rb-sys = "*"
 ratatui = { version = "0.30", features = ["widget-calendar", "layout-cache", "unstable-rendered-line-info", "palette"] }
+# The fd-based event seam (I109): the SIGWINCH watcher rides signal-hook's
+# self-pipe registration; the pipe/open syscalls ride libc. BOTH crates are
+# already in the lock as transitive deps of crossterm/rb-sys — re-used, not
+# added (Cargo.lock does not move).
+signal-hook = "0.3.18"
+libc = "0.2.178"
 
 bumpalo = "3.16"
 lazy_static = "1.4"
