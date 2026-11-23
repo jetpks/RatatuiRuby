@@ -11,7 +11,7 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 magnus = "0.8.2"
-rb-sys = "*"
+rb-sys = "0.9.130"
 ratatui = { version = "0.30", features = ["widget-calendar", "layout-cache", "unstable-rendered-line-info", "palette"] }
 # The input waiters: the resize-signal watcher rides signal-hook's
 # self-pipe registration; all fd plumbing (pipe, the stdin file-description
