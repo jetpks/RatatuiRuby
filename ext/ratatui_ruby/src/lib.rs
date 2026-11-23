@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2025 Kerrick Long <me@kerricklong.com>
+// SPDX-FileCopyrightText: 2026 Kerrick Long <me@kerricklong.com>
 // SPDX-License-Identifier: LGPL-3.0-or-later
 
 // Require SAFETY comments on all unsafe blocks
@@ -15,8 +15,8 @@ mod color;
 mod errors;
 mod events;
 mod frame;
+mod input_wait; // the input waiters (wake pipe + tty fd; platform split under input_wait/)
 mod rendering;
-mod seam; // the fd-based event seam (input-wait fds + wake pipe)
 mod string_width;
 mod style;
 mod terminal; // New module with TerminalQuery trait
@@ -229,10 +229,14 @@ fn init() -> Result<(), Error> {
     m.define_module_function("inject_test_event", function!(events::inject_test_event, 2))?;
     m.define_module_function("clear_events", function!(events::clear_events, 0))?;
     m.define_module_function("_all_key_codes", function!(events::all_key_codes, 0))?;
-    // The fd-based event seam primitives (the Ruby seam layer owns the
-    // public contract on top of these).
-    m.define_module_function("__input_seam_fds", function!(seam::input_seam_fds, 0))?;
-    m.define_module_function("__input_seam_write_wake", function!(seam::write_wake, 0))?;
+    // The input-waiter primitives (the Ruby layer owns the public
+    // contract on top of these).
+    m.define_module_function("_input_wait_fds", function!(input_wait::input_wait_fds, 0))?;
+    m.define_module_function("_write_input_wake", function!(input_wait::write_wake, 0))?;
+    m.define_module_function(
+        "_test_terminal_installed?",
+        function!(input_wait::test_terminal_installed, 0),
+    )?;
 
     // Register State classes
     widgets::list_state::register(&ruby, m)?;

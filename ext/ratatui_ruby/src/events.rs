@@ -330,7 +330,7 @@ enum PollResult {
     /// The timeout expired with no event available.
     NoEvent,
     /// The event source was never initialized at this seat — crossterm's
-    /// INTERNAL_EVENT_READER static caches `source: None` when its init
+    /// `INTERNAL_EVENT_READER` static caches `source: None` when its init
     /// fails (a seat where the tty fd cannot be kqueue-registered — e.g.
     /// stdin is not a tty and /dev/tty is not kqueue-watchable on this
     /// macOS) and every poll then fails with this exact constant error
@@ -342,8 +342,12 @@ enum PollResult {
 }
 
 /// The exact message crossterm 0.29 uses when its cached event source is
-/// missing (read.rs:56-60). Only this class degrades to None / a
-/// seam-synthesized resize; everything else keeps today's raise.
+/// missing (`event/read.rs:57` — the `source: None` arm). Only this class
+/// degrades to None / a watcher-synthesized resize; everything else keeps
+/// today's raise. The match is exact-string — brittle but pinned: the
+/// Cargo.lock pins crossterm 0.29, and the canary test in
+/// `input_wait/unix.rs` binds the class so a version bump that changes the
+/// message cannot silently re-open the raise behavior.
 const NO_SOURCE_ERROR: &str = "Failed to initialize input reader";
 
 /// Data passed to the GVL-free polling callback.
@@ -417,13 +421,12 @@ fn poll_crossterm_without_gvl(
         PollResult::Event(event) => handle_crossterm_event(event),
         PollResult::NoEvent => Ok(ruby.qnil().into_value_with(ruby)),
         PollResult::NoSource => {
-            // The seam's headless degrade (§ no-source class, exactly the
+            // The headless degrade (§ no-source class, exactly the
             // cached-init failure — never a mid-stream error): no raise.
-            // A SIGWINCH recorded by the seam's watcher surfaces as Resize;
+            // A resize signal recorded by the watcher surfaces as Resize;
             // with none pending this is the plain None event.
-            if crate::seam::take_pending_resize() {
-                let (width, height) =
-                    ratatui::crossterm::terminal::size().unwrap_or((80, 24));
+            if crate::input_wait::take_pending_resize() {
+                let (width, height) = ratatui::crossterm::terminal::size().unwrap_or((80, 24));
                 handle_resize_event(width, height)
             } else {
                 Ok(ruby.qnil().into_value_with(ruby))

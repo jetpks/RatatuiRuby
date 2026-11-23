@@ -38,9 +38,6 @@ require_relative "ratatui_ruby/tui"
 # Synthetic events queue (for async synchronization)
 require_relative "ratatui_ruby/synthetic_events"
 
-# The fd-based event seam (input-wait fds + wake pipe)
-require_relative "ratatui_ruby/seam"
-
 # Precompiled gems store binaries in versioned subdirectories
 begin
   RUBY_VERSION =~ /(\d+\.\d+)/
@@ -48,6 +45,11 @@ begin
 rescue LoadError
   require "ratatui_ruby/ratatui_ruby"
 end
+
+# The input waiters (wake pipe + tty fd exposure) — required AFTER the
+# native extension so private_class_method finds the native methods at
+# load time.
+require_relative "ratatui_ruby/input_waiters"
 
 # Debug mode (for Rust backtraces and diagnostic features)
 # Loaded after native extension so _enable_rust_backtrace is defined
