@@ -1063,10 +1063,10 @@ version = "1.5.2"
 dependencies = [
  "bumpalo",
  "lazy_static",
- "libc",
  "magnus",
  "ratatui",
  "rb-sys",
+ "rustix",
  "signal-hook",
  "time",
 ]
