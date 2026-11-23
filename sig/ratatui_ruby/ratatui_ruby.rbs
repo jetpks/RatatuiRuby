@@ -61,6 +61,17 @@ module RatatuiRuby
   def self.experimental_warnings=: (bool) -> bool
   def self.warn_experimental_feature: (String feature_name) -> void
 
+  # Input waiters (wake pipe + tty fd; the natives are Rust-backed)
+  def self.input_waiters: () -> Hash[Symbol, IO]
+  def self.drain_input_wake: () -> Integer
+  def self._input_wait_fds: () -> Hash[Symbol, Integer?]
+  def self._write_input_wake: () -> nil
+  def self._test_terminal_installed?: () -> bool
+
+  # The memoized IO wrappers over the exposed fds (keyed by fd)
+  self.@input_waiter_ios: Hash[Integer, IO]
+  def self.waiter_io: (Integer fd) -> IO
+
   # Warning queue (private)
   def self.queue_warning: (String message) -> void
   def self.flush_warnings: () -> void

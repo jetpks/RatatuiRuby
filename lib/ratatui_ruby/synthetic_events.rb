@@ -74,8 +74,15 @@ module RatatuiRuby
       # Pushes an event to the synthetic queue.
       #
       # [event] An <tt>Event</tt> object (typically <tt>Event::Sync</tt>).
+      #
+      # Every push also writes one wake byte into the wake pipe (see
+      # input_waiters) — the queue is self-waking: a host reactor awaiting
+      # the wake waiter unblocks immediately instead of polling. The byte
+      # write is non-blocking and best-effort (a full pipe keeps its read
+      # end readable, which is all any consumer observes).
       def push(event)
         @mutex.synchronize { @queue << event }
+        RatatuiRuby.__send__(:_write_input_wake)
       end
 
       ##

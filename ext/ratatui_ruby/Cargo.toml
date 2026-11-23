@@ -11,8 +11,15 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 magnus = "0.8.2"
-rb-sys = "*"
+rb-sys = "0.9.130"
 ratatui = { version = "0.30", features = ["widget-calendar", "layout-cache", "unstable-rendered-line-info", "palette"] }
+# The input waiters: the resize-signal watcher rides signal-hook's
+# self-pipe registration; all fd plumbing (pipe, the stdin file-description
+# copy, the tty check, the wake write) rides rustix's safe API. BOTH crates
+# are already in the lock as transitive deps of crossterm — re-used, not
+# added (Cargo.lock package set does not move).
+signal-hook = "0.3.18"
+rustix = { version = "1.1.3", features = ["event", "fs", "pipe", "termios"] }
 
 bumpalo = "3.16"
 lazy_static = "1.4"

@@ -46,6 +46,11 @@ rescue LoadError
   require "ratatui_ruby/ratatui_ruby"
 end
 
+# The input waiters (wake pipe + tty fd exposure) — required AFTER the
+# native extension so private_class_method finds the native methods at
+# load time.
+require_relative "ratatui_ruby/input_waiters"
+
 # Debug mode (for Rust backtraces and diagnostic features)
 # Loaded after native extension so _enable_rust_backtrace is defined
 require_relative "ratatui_ruby/debug"

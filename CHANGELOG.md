@@ -12,6 +12,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **`RatatuiRuby.input_waiters` / `RatatuiRuby.drain_input_wake`** (unix; fd-based input waiting): `input_waiters` returns the fds a host reactor's selector awaits so that waiting for input never happens inside the gem — `{ wake: IO }` plus `{ tty: IO }` when a real tty is exposed — as memoized `IO` objects with `autoclose: false` (the fds are process-owned: neither GC nor an explicit close can close them; `IO#fileno` is the escape hatch). The wake pipe is written by every `SyntheticEvents.push` (the synthetic rail is self-waking) and by a SIGWINCH watcher (one byte per delivered SIGWINCH, via an independent signal-hook self-pipe registration — crossterm's internal Signals set is untouched). The first exposure warms crossterm's global event source with exactly one non-consuming poll, so no queued event is swallowed and a SIGWINCH delivered before the source's lazy first poll is never lost. On seats where fd-based waiting is unavailable (Windows; a failed pipe creation), `input_waiters` returns exactly `{}` and never raises — fall back to `poll_event(timeout:)` there. `drain_input_wake` read-drains every buffered wake byte (returning the count), never blocks, and re-arms the pipe. `poll_event`'s public timeout semantics are unchanged: the host awaits readiness on the waiters, then runs the non-blocking ready-read (`poll_event(timeout: 0.0)`) when the tty is ready. No GVL-held blocking wait is added anywhere on the input path.
+
 ### Changed
 
 ### Fixed

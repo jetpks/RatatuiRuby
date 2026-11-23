@@ -329,9 +329,26 @@ enum PollResult {
     Event(ratatui::crossterm::event::Event),
     /// The timeout expired with no event available.
     NoEvent,
+    /// The event source was never initialized at this seat — crossterm's
+    /// `INTERNAL_EVENT_READER` static caches `source: None` when its init
+    /// fails (a seat where the tty fd cannot be kqueue-registered — e.g.
+    /// stdin is not a tty and /dev/tty is not kqueue-watchable on this
+    /// macOS) and every poll then fails with this exact constant error
+    /// message. Narrowly matched by exact string: a mid-stream error AFTER
+    /// a successful init is `Error`, never `NoSource`.
+    NoSource,
     /// An I/O error occurred during poll or read.
     Error(String),
 }
+
+/// The exact message crossterm 0.29 uses when its cached event source is
+/// missing (`event/read.rs:57` — the `source: None` arm). Only this class
+/// degrades to None / a watcher-synthesized resize; everything else keeps
+/// today's raise. The match is exact-string — brittle but pinned: the
+/// Cargo.lock pins crossterm 0.29, and the canary test in
+/// `input_wait/unix.rs` binds the class so a version bump that changes the
+/// message cannot silently re-open the raise behavior.
+const NO_SOURCE_ERROR: &str = "Failed to initialize input reader";
 
 /// Data passed to the GVL-free polling callback.
 ///
@@ -358,13 +375,16 @@ extern "C" fn poll_without_gvl(data: *mut c_void) -> *mut c_void {
         Some(duration) => match ratatui::crossterm::event::poll(duration) {
             Ok(true) => match ratatui::crossterm::event::read() {
                 Ok(event) => PollResult::Event(event),
+                Err(e) if e.to_string() == NO_SOURCE_ERROR => PollResult::NoSource,
                 Err(e) => PollResult::Error(e.to_string()),
             },
             Ok(false) => PollResult::NoEvent,
+            Err(e) if e.to_string() == NO_SOURCE_ERROR => PollResult::NoSource,
             Err(e) => PollResult::Error(e.to_string()),
         },
         None => match ratatui::crossterm::event::read() {
             Ok(event) => PollResult::Event(event),
+            Err(e) if e.to_string() == NO_SOURCE_ERROR => PollResult::NoSource,
             Err(e) => PollResult::Error(e.to_string()),
         },
     };
@@ -400,6 +420,18 @@ fn poll_crossterm_without_gvl(
     match data.result {
         PollResult::Event(event) => handle_crossterm_event(event),
         PollResult::NoEvent => Ok(ruby.qnil().into_value_with(ruby)),
+        PollResult::NoSource => {
+            // The headless degrade (§ no-source class, exactly the
+            // cached-init failure — never a mid-stream error): no raise.
+            // A resize signal recorded by the watcher surfaces as Resize;
+            // with none pending this is the plain None event.
+            if crate::input_wait::take_pending_resize() {
+                let (width, height) = ratatui::crossterm::terminal::size().unwrap_or((80, 24));
+                handle_resize_event(width, height)
+            } else {
+                Ok(ruby.qnil().into_value_with(ruby))
+            }
+        }
         PollResult::Error(msg) => Err(Error::new(ruby.exception_runtime_error(), msg)),
     }
 }
